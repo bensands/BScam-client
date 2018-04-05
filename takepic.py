@@ -6,15 +6,23 @@ import paho.mqtt.client as mqtt
 
 def on_disconnect(client, userdata, rc):
 	print "unexpected disconnect at ", time.asctime(time.localtime(time.time()))	
-	while True:
+	while not client.connected_flag:
 		time.sleep(1)
 		print "attempting to reconnect at ", time.asctime(time.localtime(time.time()))
-		if client.connect(serveripcred):
-			break
+		client.connect(serveripcred)
+
+def on_connect(client, userdata, flags, rc):
+	if rc == 0:
+		client.connected_flag = True # set flag
+		print("connected OK")
+		client.subscribe("takepic")
+	else:
+		print("Bad connection Returned code=",rc)
+		mqtt.Client.connected_flag = False # create flag in class
 
 def on_message(mosq, obj, msg):
-	print("hi")
 	if msg.payload == "1":
+		print "image requested by server at ", time.asctime(time.localtime(time.time()))
 		camera = picamera.PiCamera()
 		camera.capture('image.jpg')
 		camera.close()
@@ -32,9 +40,9 @@ with open("credentials.txt","r") as f:
 	serveripcred = f.readline().rstrip()
 
 client = mqtt.Client()
+client.on_connect = on_connect
 client.on_disconnect = on_disconnect
 client.on_message = on_message
-client.connect(serveripcred) 	# paste in the IP of the MQTT server
-client.subscribe("takepic")
+client.connect(serveripcred)
 
 client.loop_forever()
